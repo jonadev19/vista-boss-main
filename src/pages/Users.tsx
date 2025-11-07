@@ -6,16 +6,22 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, UserPlus } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { MoreHorizontal, Trash2, UserPlus, Edit } from "lucide-react";
+import { UserForm } from "@/components/UserForm";
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
+    setIsLoading(true);
     try {
       const data = await api.getUsers();
       setUsers(data);
@@ -36,7 +42,6 @@ export default function Users() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-
     try {
       await api.deleteUser(deleteId);
       toast({
@@ -55,30 +60,38 @@ export default function Users() {
     }
   };
 
+  const handleFormFinished = () => {
+    setIsFormOpen(false);
+    setSelectedUser(null);
+    fetchUsers();
+  };
+
+  const openCreateForm = () => {
+    setSelectedUser(null);
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (user: User) => {
+    setSelectedUser(user);
+    setIsFormOpen(true);
+  };
+
   const getRoleBadgeVariant = (role: string) => {
-    switch (role.toLowerCase()) {
-      case 'admin':
-        return 'default';
-      case 'comerciante':
-        return 'secondary';
-      case 'creador de ruta':
-        return 'outline';
-      default:
-        return 'outline';
+    switch (role?.toLowerCase()) {
+      case 'admin': return 'default';
+      case 'comerciante': return 'secondary';
+      case 'creador de ruta': return 'outline';
+      default: return 'outline';
     }
   };
 
-  if (isLoading) {
+  if (isLoading && users.length === 0) {
     return (
       <div className="p-8">
         <Skeleton className="h-12 w-64 mb-8" />
         <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-48" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
+          <CardHeader><Skeleton className="h-8 w-48" /></CardHeader>
+          <CardContent><Skeleton className="h-64 w-full" /></CardContent>
         </Card>
       </div>
     );
@@ -91,7 +104,7 @@ export default function Users() {
           <h1 className="text-3xl font-bold">Usuarios</h1>
           <p className="text-muted-foreground mt-2">Gestión de usuarios de la plataforma</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
+        <Button onClick={openCreateForm} className="bg-gradient-primary hover:opacity-90">
           <UserPlus className="mr-2 h-4 w-4" />
           Nuevo Usuario
         </Button>
@@ -127,17 +140,25 @@ export default function Users() {
                     {new Date(user.createdAt).toLocaleDateString('es-MX')}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        console.log('Delete clicked for user:', user.id);
-                        setDeleteId(user.id);
-                      }}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Abrir menú</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => openEditForm(user)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setDeleteId(user.id)} className="text-destructive">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -146,9 +167,18 @@ export default function Users() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={deleteId !== null} onOpenChange={(open) => {
-        if (!open) setDeleteId(null);
-      }}>
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{selectedUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <UserForm user={selectedUser} onFinished={handleFormFinished} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
@@ -157,11 +187,8 @@ export default function Users() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteId(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete} 
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
