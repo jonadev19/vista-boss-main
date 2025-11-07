@@ -63,7 +63,7 @@ export interface Transaction {
 }
 
 const getAuthHeaders = () => {
-  const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjo2LCJyb2wiOiJBZG1pbiJ9LCJpYXQiOjE3NjI1NTEzNTUsImV4cCI6MTc2MjU1NDk1NX0.wXu-xtauX28Y-TcL8iU5IHQJ-NvzVFPZH_O-Sawe4cE'; // Token proporcionado
+  const token = localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     'x-auth-token': token || '',
@@ -79,7 +79,11 @@ export const api = {
       body: JSON.stringify(credentials),
     });
     if (!response.ok) throw new Error('Error al iniciar sesión');
-    return response.json();
+    const data = await response.json();
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+    }
+    return data;
   },
 
   // Dashboard
@@ -135,6 +139,15 @@ export const api = {
     return response.json();
   },
 
+  createRoute: async (routeData: Partial<Route>): Promise<void> => {
+    const response = await fetch(`${API_URL}/api/admin/routes`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(routeData),
+    });
+    if (!response.ok) throw new Error('Error al crear la ruta');
+  },
+
   updateRouteStatus: async (id: number, estado: string): Promise<void> => {
     const response = await fetch(`${API_URL}/api/admin/routes/${id}/status`, {
       method: 'PUT',
@@ -161,6 +174,24 @@ export const api = {
     return response.json();
   },
 
+  createStore: async (storeData: Partial<Store>): Promise<void> => {
+    const response = await fetch(`${API_URL}/api/admin/stores`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(storeData),
+    });
+    if (!response.ok) throw new Error('Error al crear el comercio');
+  },
+
+  updateStore: async (id: number, storeData: Partial<Store>): Promise<void> => {
+    const response = await fetch(`${API_URL}/api/admin/stores/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(storeData),
+    });
+    if (!response.ok) throw new Error('Error al actualizar el comercio');
+  },
+
   updateStoreStatus: async (id: number, estado: string): Promise<void> => {
     const response = await fetch(`${API_URL}/api/admin/stores/${id}/status`, {
       method: 'PUT',
@@ -168,6 +199,14 @@ export const api = {
       body: JSON.stringify({ estado }),
     });
     if (!response.ok) throw new Error('Error al actualizar estado de comercio');
+  },
+
+  deleteStore: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}/api/admin/stores/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Error al eliminar el comercio');
   },
 
   // Transactions
